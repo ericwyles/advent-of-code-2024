@@ -81,15 +81,11 @@ func main() {
 		}
 
 		if goodInput {
-			middle := pageNums[len(pageNums)/2]
-			fmt.Printf("    Good input found: %v. Middle value is %d\n", pages, middle)
-			middleSum += middle
+			middleSum += getMiddleValue(pageNums)
+			fmt.Printf("    Good input found: %v.\n", pageNums)
 		} else {
+			badMiddleSum += getMiddleValue(reorderSlice(pageNums, requiredBeforeMap))
 			fmt.Printf("    ERROR bad input found: %v\n", pages)
-			fixedInput := reorderSlice(pageNums, requiredBeforeMap)
-			middle := fixedInput[len(fixedInput)/2]
-			fmt.Printf("    ERROR reordered bad input: %v\n", fixedInput)
-			badMiddleSum += middle
 		}
 
 	}
@@ -147,4 +143,8 @@ func isRequiredBefore(page int, otherPage int, allPages []int, requiredBeforeMap
 		}
 	}
 	return false
+}
+
+func getMiddleValue(pages []int) int {
+	return pages[len(pages)/2]
 }
