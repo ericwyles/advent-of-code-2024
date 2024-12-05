@@ -3,6 +3,8 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -36,58 +38,26 @@ func main() {
 		}
 	}
 
-	// Print the results
-	fmt.Println("Ordering Rules:")
-	fmt.Println(orderingRules)
-
-	fmt.Println("Pages to Produce:")
-	fmt.Println(pagesToProduce)
-
 	requiredBeforeMap := make(map[int][]int)
 	for _, orderingRule := range orderingRules {
 		page, requiredBefore := readOrderingRule(orderingRule)
 		requiredBeforeMap[page] = append(requiredBeforeMap[page], requiredBefore)
 	}
 
-	fmt.Println("Required before map")
-	fmt.Println(requiredBeforeMap)
-
 	middleSum := 0
 	badMiddleSum := 0
 	for _, pageNumbers := range pagesToProduce {
 		pages := strings.Split(pageNumbers, ",")
 		pageNums := readPages(pages)
+		orderedPageNums := reorderSlice(pageNums, requiredBeforeMap)
 
-		fmt.Printf("Checking update for correct order %v:\n", pageNums)
+		middle := getMiddleValue(orderedPageNums)
 
-		goodInput := true
-		var pagesAlreadyProcessed []int
-		for _, pageNum := range pageNums {
-			//fmt.Printf("   Checking if required pages (%v) already processed for page %d\n", requiredBeforeMap[pageNum], pageNum)
-
-			if goodInput {
-				for _, requiredPage := range requiredBeforeMap[pageNum] {
-					if contains(pageNums, requiredPage) {
-						// this only matters if the requiredPage is in this input
-						if !contains(pagesAlreadyProcessed, requiredPage) {
-							fmt.Printf("    Rule %d|%d broken\n", requiredPage, pageNum)
-							goodInput = false
-						}
-					}
-				}
-				pagesAlreadyProcessed = append(pagesAlreadyProcessed, pageNum)
-			}
-
-		}
-
-		if goodInput {
-			middleSum += getMiddleValue(pageNums)
-			fmt.Printf("    Good input found: %v.\n", pageNums)
+		if reflect.DeepEqual(pageNums, orderedPageNums) {
+			middleSum += middle
 		} else {
-			badMiddleSum += getMiddleValue(reorderSlice(pageNums, requiredBeforeMap))
-			fmt.Printf("    ERROR bad input found: %v\n", pages)
+			badMiddleSum += middle
 		}
-
 	}
 
 	fmt.Printf("Sum of good middle values is: %d\n", middleSum)
@@ -111,15 +81,6 @@ func readPages(pages []string) []int {
 	return pagesInt
 }
 
-func contains(slice []int, value int) bool {
-	for _, v := range slice {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
-
 func reorderSlice(slice []int, requiredBeforeMap map[int][]int) []int {
 	// Create a copy of the slice to avoid modifying the original
 	result := make([]int, len(slice))
@@ -135,7 +96,7 @@ func reorderSlice(slice []int, requiredBeforeMap map[int][]int) []int {
 
 func isRequiredBefore(page int, otherPage int, allPages []int, requiredBeforeMap map[int][]int) bool {
 	for _, requiredPage := range requiredBeforeMap[otherPage] {
-		if contains(allPages, requiredPage) {
+		if slices.Contains(allPages, requiredPage) {
 			// this only matters if the requiredPage is in this input
 			if page == requiredPage {
 				return true
