@@ -42,9 +42,6 @@ func main() {
 	for columnPos := range len(grid[0]) {
 		verticalString := findStringFromPos(grid, 0, columnPos, +1, 0)
 
-		// for rowPos := range len(grid) {
-		// 	verticalString += string(grid[rowPos][columnPos])
-		// }
 		horizontalAndVertical = append(horizontalAndVertical, verticalString)
 	}
 
