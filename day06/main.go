@@ -31,8 +31,20 @@ var coordinateMap = map[rune]Coordinate{
 	'<': {0, -1},
 }
 
+type State struct {
+	position  Coordinate
+	direction rune
+}
+
+var phantomDistinctLocationsVisited = make(map[State]bool)
+var distinctLocationsVisited = make(map[Coordinate]struct{})
+var testedObstacleLocations = make(map[Coordinate]bool)
+var numObstacles = 0
+
+const OBSTACLE = '#'
+const CLEAR = '.'
+
 func main() {
-	distinctLocationsVisited := make(map[Coordinate]struct{})
 
 	lines := strings.Split(embeddedFile, "\n")
 	for _, line := range lines {
@@ -46,7 +58,7 @@ func main() {
 	var guardPosition Coordinate
 	var guardDirection rune
 	for row := range grid {
-		fmt.Printf("Line %s\n", string(grid[row]))
+		//fmt.Printf("Line %s\n", string(grid[row]))
 		if !foundGuard {
 			for column := range grid[row] {
 				if _, exists := directionMap[grid[row][column]]; exists {
@@ -57,30 +69,50 @@ func main() {
 		}
 	}
 
-	fmt.Printf("Found guard '%c' at position %v\n", guardDirection, guardPosition)
+	//fmt.Printf("Found guard '%c' at position %v\n", guardDirection, guardPosition)
 
-	walkItOut(guardDirection, guardPosition, distinctLocationsVisited)
+	walkItOut(guardDirection, guardPosition, false)
 
-	fmt.Printf("Distinct Locations Visited: %v\n\n", distinctLocationsVisited)
 	fmt.Printf("Number of distinct locations: %d\n", len(distinctLocationsVisited))
+	fmt.Printf("Number of possible obstacle locations: %d\n", numObstacles)
 }
 
-func walkItOut(guardDirection rune, guardPosition Coordinate, distinctLocationsVisited map[Coordinate]struct{}) {
-	distinctLocationsVisited[guardPosition] = struct{}{}
+func walkItOut(guardDirection rune, guardPosition Coordinate, isPhantomRealm bool) bool {
+	currentState := State{position: guardPosition, direction: guardDirection}
+	if isPhantomRealm {
+		if phantomDistinctLocationsVisited[currentState] {
+			return true // Found a loop
+		}
+		phantomDistinctLocationsVisited[currentState] = true
+	} else {
+		phantomDistinctLocationsVisited = make(map[State]bool)
+		distinctLocationsVisited[guardPosition] = struct{}{}
+	}
 
 	nextPosition := addCoordinates(guardPosition, coordinateMap[guardDirection])
 
 	if isOutOfBounds(nextPosition) {
-		return
+		return false // found an exit
 	}
 
-	if '#' == grid[nextPosition.row][nextPosition.column] {
+	if OBSTACLE == grid[nextPosition.row][nextPosition.column] {
 		// turn right but stay here, recursion takes care of it
 		guardDirection = turnRight(guardDirection)
-		nextPosition = guardPosition
+		return walkItOut(guardDirection, guardPosition, isPhantomRealm)
+
+	} else if !isPhantomRealm && CLEAR == grid[nextPosition.row][nextPosition.column] && !testedObstacleLocations[nextPosition] {
+		// if we haven't already working in the phantom realm,
+		//    we'll put an OBSTACLE right in front of us and see if there is a loop
+		testedObstacleLocations[nextPosition] = true
+
+		grid[nextPosition.row][nextPosition.column] = OBSTACLE
+		if walkItOut(guardDirection, guardPosition, true) {
+			numObstacles++
+		}
+		grid[nextPosition.row][nextPosition.column] = CLEAR
 	}
 
-	walkItOut(guardDirection, nextPosition, distinctLocationsVisited)
+	return walkItOut(guardDirection, nextPosition, isPhantomRealm)
 }
 
 func addCoordinates(c1, c2 Coordinate) Coordinate {
@@ -96,4 +128,13 @@ func isOutOfBounds(c Coordinate) bool {
 
 func turnRight(guardDirection rune) rune {
 	return directions[(directionMap[guardDirection]+1)%4]
+}
+
+func containsRune(r rune, slice []rune) bool {
+	for _, item := range slice {
+		if item == r {
+			return true
+		}
+	}
+	return false
 }
