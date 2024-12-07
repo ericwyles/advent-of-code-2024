@@ -26,6 +26,10 @@ func main() {
 }
 
 func canProduceTestValue(testValue int, operands []int) bool {
+	if operands[0] > testValue {
+		return false
+	}
+
 	if len(operands) == 1 {
 		return operands[0] == testValue
 	}
