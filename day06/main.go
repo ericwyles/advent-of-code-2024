@@ -58,7 +58,6 @@ func main() {
 	var guardPosition Coordinate
 	var guardDirection rune
 	for row := range grid {
-		//fmt.Printf("Line %s\n", string(grid[row]))
 		if !foundGuard {
 			for column := range grid[row] {
 				if _, exists := directionMap[grid[row][column]]; exists {
@@ -68,8 +67,6 @@ func main() {
 			}
 		}
 	}
-
-	//fmt.Printf("Found guard '%c' at position %v\n", guardDirection, guardPosition)
 
 	walkItOut(guardDirection, guardPosition, false)
 
