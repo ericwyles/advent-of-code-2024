@@ -9,10 +9,18 @@ import (
 //go:embed input.txt
 var embeddedFile string
 
+type FileMetadata struct {
+	fileId   int
+	location int
+	size     int
+}
+
 func main() {
 	fileId := 0
 	diskSize := 0
 	var diskMap []int
+	var originalFileLocations []FileMetadata
+	var emptyLocations []FileMetadata
 
 	for _, r := range embeddedFile {
 		j, _ := strconv.Atoi(string(r))
@@ -24,23 +32,59 @@ func main() {
 	wholeDiskIndex := 0
 
 	for i := range diskMap {
+		size := diskMap[i]
 		if i%2 == 0 {
-			setRange(wholeDisk, fileId, wholeDiskIndex, diskMap[i])
+			originalFileLocations = append(originalFileLocations, FileMetadata{fileId: fileId, location: wholeDiskIndex, size: size})
+			setRange(wholeDisk, fileId, wholeDiskIndex, size)
 			fileId++
 		} else {
-			setRange(wholeDisk, -1, wholeDiskIndex, diskMap[i])
+			emptyLocations = append(emptyLocations, FileMetadata{fileId: -1, location: wholeDiskIndex, size: size})
+			setRange(wholeDisk, -1, wholeDiskIndex, size)
 		}
 
-		wholeDiskIndex += diskMap[i]
+		wholeDiskIndex += size
 	}
 
-	//printIntsAsStrings(wholeDisk)
-	for swapLastValue(wholeDisk) {
-		// it's not super efficient but we'll see if i get by with it
+	for i := len(originalFileLocations) - 1; i >= 0; i-- {
+		fileToMove := originalFileLocations[i]
+		emptySpace := findNextSufficientEmptySpace(&emptyLocations, fileToMove.size)
+		if emptySpace == -1 {
+			continue // can't move this because no space
+		} else if emptySpace >= fileToMove.location {
+			continue // can't move this because new spot is after original spot
+		}
+
+		moveFile(wholeDisk, fileToMove, emptySpace)
 	}
-	//printIntsAsStrings(wholeDisk)
 
 	fmt.Printf("\nChecksum: %d\n", calcCheckSum(wholeDisk))
+}
+
+func moveFile(wholeDisk []int, fileToMove FileMetadata, newLocation int) {
+	setRange(wholeDisk, fileToMove.fileId, newLocation, fileToMove.size)
+	setRange(wholeDisk, -1, fileToMove.location, fileToMove.size)
+}
+
+func findNextSufficientEmptySpace(emptyLocations *[]FileMetadata, spaceNeeded int) int {
+	for i, file := range *emptyLocations {
+		if file.size >= spaceNeeded {
+			location := file.location
+
+			if spaceNeeded == file.size {
+				// Remove the entry from availableSpace slice, this space is used up
+				*emptyLocations = append((*emptyLocations)[:i], (*emptyLocations)[i+1:]...)
+			} else {
+				// Update the entry: increment location and decrement size, encapsulation kind of trash here but it's fast
+				(*emptyLocations)[i].location += spaceNeeded
+				(*emptyLocations)[i].size -= spaceNeeded
+			}
+
+			return location
+		}
+	}
+
+	// No sufficient space found
+	return -1
 }
 
 func setRange(disk []int, value int, startIndex int, times int) {
