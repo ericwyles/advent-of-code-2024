@@ -35,7 +35,6 @@ func main() {
 		if len(line) > 0 {
 			var gridline []int
 			for j, char := range line {
-				// Convert rune (character) to its integer representation
 				num, _ := strconv.Atoi(string(char))
 				gridline = append(gridline, num)
 
