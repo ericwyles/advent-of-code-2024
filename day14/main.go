@@ -54,15 +54,13 @@ func main() {
 	fmt.Printf("safetyFactor %d\n", safetyFactor)
 
 	// part 2
-	for seconds := range 10000 {
+	for seconds := range 10403 {
 		coordinateMap := make(map[Coordinate]struct{})
 		for _, r := range robots {
 			newpos := move(r, seconds)
 			coordinateMap[newpos] = struct{}{}
 		}
-		if printRobots(coordinateMap, seconds) {
-			break
-		}
+		printRobots(coordinateMap, seconds)
 	}
 }
 
@@ -124,7 +122,7 @@ func printRobots(coordinateMap map[Coordinate]struct{}, seconds int) bool {
 		for x := range HEIGHT {
 			r := ' '
 			if _, exists := coordinateMap[Coordinate{y: y, x: x}]; exists {
-				r = '*'
+				r = '^'
 			}
 
 			line += fmt.Sprintf("%c", r)
@@ -133,7 +131,7 @@ func printRobots(coordinateMap map[Coordinate]struct{}, seconds int) bool {
 		fullMap += line + "\n"
 	}
 
-	if strings.Contains(fullMap, "*********") { // took a guess here that I could just look for a group of consecutive * in the output
+	if strings.Contains(fullMap, "^^^^^^^^^^") { // took a guess here that I could just look for a group of consecutive robots
 		fmt.Printf(fullMap)
 		fmt.Printf("\n^^^AFTER %04d SECONDS^^^\n", seconds)
 		return true
