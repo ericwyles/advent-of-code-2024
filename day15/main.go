@@ -269,7 +269,7 @@ func add(c1, c2 Coordinate) Coordinate {
 func printGrid(grid [][]rune, header string) {
 	fmt.Printf("%s\n", header)
 	fmt.Printf("    ")
-	for i, _ := range grid[0] {
+	for i := range grid[0] {
 		fmt.Printf("%d", i%10)
 	}
 	fmt.Println()
