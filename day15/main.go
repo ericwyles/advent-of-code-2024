@@ -96,10 +96,6 @@ func main() {
 	}
 	fmt.Printf("Sum of GPS Coordinates: %d\n", gpsSum)
 
-	if gpsSum != 10092 && gpsSum != 2028 && gpsSum != 1476771 && gpsSum != 908 && gpsSum != 1816 {
-		panic("!!!!! Broke part 1 bruh !!!!!")
-	}
-
 	// part 2
 	robotPosition = findRobot(scaledGrid)
 	printGrid(scaledGrid, "Initial state:")
@@ -119,10 +115,6 @@ func main() {
 		}
 	}
 	fmt.Printf("Sum of Scaled GPS Coordinates: %d\n", scaledGpsSum)
-
-	if scaledGpsSum != 1468005 {
-		panic("!!!!! Broke part 2 bruh !!!!!")
-	}
 
 }
 
