@@ -12,7 +12,7 @@ import (
 var embeddedFile string
 var originalGrid [][]rune
 var scaledGrid [][]rune
-var guardPosition Coordinate
+var robotPosition Coordinate
 
 type Coordinate struct {
 	column int
@@ -29,7 +29,7 @@ type CoordinatePair struct {
 	b Coordinate
 }
 
-const GUARD = '@'
+const ROBOT = '@'
 const BOX = 'O'
 const WALL = '#'
 const EMPTY = '.'
@@ -78,11 +78,11 @@ func main() {
 	movements = reg.ReplaceAllString(movements, "")
 
 	// part 1
-	guardPosition = findGuard(originalGrid)
+	robotPosition = findRobot(originalGrid)
 	printGrid(originalGrid, "Initial state:")
 
 	for _, m := range movements {
-		guardPosition, _ = move(originalGrid, guardPosition, directionMap[m])
+		robotPosition, _ = move(originalGrid, robotPosition, directionMap[m])
 	}
 
 	printGrid(originalGrid, "After all moves:")
@@ -101,12 +101,12 @@ func main() {
 	}
 
 	// part 2
-	guardPosition = findGuard(scaledGrid)
+	robotPosition = findRobot(scaledGrid)
 	printGrid(scaledGrid, "Initial state:")
-	fmt.Printf("Guard position: %v\n", guardPosition)
+	fmt.Printf("Robot position: %v\n", robotPosition)
 	for _, m := range movements {
 		//fmt.Printf("Performing move %c:\n", m)
-		guardPosition, _ = move(scaledGrid, guardPosition, directionMap[m])
+		robotPosition, _ = move(scaledGrid, robotPosition, directionMap[m])
 	}
 
 	printGrid(scaledGrid, "Final State")
@@ -283,10 +283,10 @@ func printGrid(grid [][]rune, header string) {
 	fmt.Println()
 }
 
-func findGuard(grid [][]rune) Coordinate {
+func findRobot(grid [][]rune) Coordinate {
 	for row, line := range grid {
 		for column, cell := range line {
-			if cell == GUARD {
+			if cell == ROBOT {
 				return Coordinate{row: row, column: column}
 			}
 		}
