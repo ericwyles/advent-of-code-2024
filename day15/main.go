@@ -3,18 +3,30 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 )
 
-//go:embed simple2.txt
+//go:embed input.txt
 var embeddedFile string
-var grid [][]rune
+var originalGrid [][]rune
 var scaledGrid [][]rune
 var guardPosition Coordinate
 
 type Coordinate struct {
 	column int
 	row    int
+}
+
+type WideBox struct {
+	left  Coordinate
+	right Coordinate
+}
+
+type CoordinatePair struct {
+	a Coordinate
+	b Coordinate
 }
 
 const GUARD = '@'
@@ -24,11 +36,23 @@ const EMPTY = '.'
 const BOX_LEFT = '['
 const BOX_RIGHT = ']'
 
+const LEFT = "LEFT"
+const RIGHT = "RIGHT"
+const UP = "UP"
+const DOWN = "DOWN"
+
 var directionMap = map[rune]Coordinate{
 	'^': {row: -1, column: 0}, // UP
 	'v': {row: 1, column: 0},  // DOWN
 	'>': {row: 0, column: 1},  // RIGHT
 	'<': {row: 0, column: -1}, // LEFT
+}
+
+var directionWordMap = map[string]Coordinate{
+	UP:    {row: -1, column: 0}, // UP
+	DOWN:  {row: 1, column: 0},  // DOWN
+	RIGHT: {row: 0, column: 1},  // RIGHT
+	LEFT:  {row: 0, column: -1}, // LEFT
 }
 
 var directionWords = map[Coordinate]string{
@@ -44,24 +68,26 @@ func main() {
 	lines := strings.Split(chunks[0], "\n")
 	for _, line := range lines {
 		if len(line) > 0 {
-			grid = append(grid, []rune(line))
+			originalGrid = append(originalGrid, []rune(line))
 			scaledGrid = append(scaledGrid, []rune(scaleUp(line))) // for part 2
 		}
 	}
 
 	movements := strings.TrimSpace(chunks[1])
+	reg, _ := regexp.Compile("\\s+") //compile
+	movements = reg.ReplaceAllString(movements, "")
 
 	// part 1
-	guardPosition = findGuard(grid)
-	printGrid(grid, "Initial state:")
+	guardPosition = findGuard(originalGrid)
+	printGrid(originalGrid, "Initial state:")
 
 	for _, m := range movements {
-		guardPosition, _ = move(guardPosition, directionMap[m])
+		guardPosition, _ = move(originalGrid, guardPosition, directionMap[m])
 	}
 
-	printGrid(grid, "After all moves:")
+	printGrid(originalGrid, "After all moves:")
 	gpsSum := 0
-	for row, line := range grid {
+	for row, line := range originalGrid {
 		for column, cell := range line {
 			if cell == BOX {
 				gpsSum += (row * 100) + column
@@ -70,13 +96,20 @@ func main() {
 	}
 	fmt.Printf("Sum of GPS Coordinates: %d\n", gpsSum)
 
-	if gpsSum != 10092 && gpsSum != 2028 && gpsSum != 1476771 && gpsSum != 908 {
+	if gpsSum != 10092 && gpsSum != 2028 && gpsSum != 1476771 && gpsSum != 908 && gpsSum != 1816 {
 		panic("!!!!! Broke part 1 bruh !!!!!")
 	}
 
 	// part 2
 	guardPosition = findGuard(scaledGrid)
 	printGrid(scaledGrid, "Initial state:")
+	fmt.Printf("Guard position: %v\n", guardPosition)
+	for _, m := range movements {
+		//fmt.Printf("Performing move %c:\n", m)
+		guardPosition, _ = move(scaledGrid, guardPosition, directionMap[m])
+	}
+
+	printGrid(scaledGrid, "Final State")
 	scaledGpsSum := 0
 	for row, line := range scaledGrid {
 		for column, cell := range line {
@@ -85,45 +118,144 @@ func main() {
 			}
 		}
 	}
-	fmt.Printf("Guard position: %v\n", guardPosition)
 	fmt.Printf("Sum of Scaled GPS Coordinates: %d\n", scaledGpsSum)
+
+	if scaledGpsSum != 1468005 {
+		panic("!!!!! Broke part 2 bruh !!!!!")
+	}
 
 }
 
-func move(pos, direction Coordinate) (Coordinate, bool) {
+func move(grid [][]rune, pos, direction Coordinate) (Coordinate, bool) {
 	nextPosition := add(pos, direction)
-	if isWall(nextPosition) {
+	//fmt.Println(nextPosition)
+	if isWall(grid, nextPosition) {
 		return pos, false
 	}
 
-	if isEmpty(nextPosition) {
-		swap(pos, nextPosition)
+	if isEmpty(grid, nextPosition) {
+		swap(grid, pos, nextPosition)
 		return nextPosition, true
 	}
 
-	if isBox(nextPosition) {
-		if _, moved := move(nextPosition, direction); moved {
-			swap(pos, nextPosition)
+	if isBox(grid, nextPosition) {
+		if _, moved := move(grid, nextPosition, direction); moved {
+			swap(grid, pos, nextPosition)
 			return nextPosition, true
+		}
+	}
+
+	// going left or right against wide boxes works like part 1
+	directionWord := directionWords[direction]
+	if directionWord == LEFT || directionWord == RIGHT {
+		if isBoxLeft(grid, nextPosition) || isBoxRight(grid, nextPosition) {
+			if _, moved := move(grid, nextPosition, direction); moved {
+				swap(grid, pos, nextPosition)
+				return nextPosition, true
+			}
+		}
+	}
+
+	// going up or down against wide boxes needs special movement
+	if directionWord == UP || directionWord == DOWN {
+		if isBoxLeft(grid, nextPosition) {
+			swapTree := make(map[int][]CoordinatePair)
+			box := WideBox{left: nextPosition, right: add(nextPosition, directionWordMap[RIGHT])}
+			if wideMove(grid, box, direction, 1, swapTree) {
+
+				executeSwapTree(grid, swapTree)
+				swap(grid, pos, nextPosition)
+				return nextPosition, true
+			}
+		}
+
+		if isBoxRight(grid, nextPosition) {
+			swapTree := make(map[int][]CoordinatePair)
+			box := WideBox{left: add(nextPosition, directionWordMap[LEFT]), right: nextPosition}
+			if wideMove(grid, box, direction, 1, swapTree) {
+				fmt.Printf("Back and can swap!\n")
+
+				executeSwapTree(grid, swapTree)
+				swap(grid, pos, nextPosition)
+				return nextPosition, true
+			}
 		}
 	}
 
 	return pos, false
 }
 
-func swap(a, b Coordinate) {
+func wideMove(grid [][]rune, box WideBox, direction Coordinate, depth int, swapTree map[int][]CoordinatePair) bool {
+
+	nextPositions := WideBox{left: add(box.left, direction), right: add(box.right, direction)}
+
+	// can't move walls
+	if isWall(grid, nextPositions.left) || isWall(grid, nextPositions.right) {
+		return false
+	}
+
+	// check if we can move one box straight ahead
+	if isBoxLeft(grid, nextPositions.left) && isBoxRight(grid, nextPositions.right) {
+		newBox := nextPositions
+		if !wideMove(grid, newBox, direction, depth+1, swapTree) {
+			return false
+		}
+	}
+
+	// check if we can move one box offset to left
+	if isBoxLeft(grid, nextPositions.right) && isEmpty(grid, nextPositions.left) {
+		newBox := WideBox{left: nextPositions.right, right: add(nextPositions.right, directionWordMap[RIGHT])}
+
+		if !wideMove(grid, newBox, direction, depth+1, swapTree) {
+			return false
+		}
+	}
+
+	// check if we can move one box offset to right
+	if isEmpty(grid, nextPositions.right) && isBoxRight(grid, nextPositions.left) {
+		newBox := WideBox{left: add(nextPositions.left, directionWordMap[LEFT]), right: nextPositions.left}
+
+		if !wideMove(grid, newBox, direction, depth+1, swapTree) {
+			return false
+		}
+	}
+
+	// check if we can move two boxes (one offset left, one offset right)
+	if isBoxLeft(grid, nextPositions.right) && isBoxRight(grid, nextPositions.left) {
+		newBoxLeft := WideBox{left: add(nextPositions.left, directionWordMap[LEFT]), right: nextPositions.left}
+		newBoxRight := WideBox{left: nextPositions.right, right: add(nextPositions.right, directionWordMap[RIGHT])}
+
+		if !wideMove(grid, newBoxLeft, direction, depth+1, swapTree) || !wideMove(grid, newBoxRight, direction, depth+1, swapTree) {
+			return false
+		}
+	}
+
+	swapTree[depth] = append(swapTree[depth], CoordinatePair{a: box.left, b: nextPositions.left})
+	swapTree[depth] = append(swapTree[depth], CoordinatePair{a: box.right, b: nextPositions.right})
+	return true
+}
+
+func swap(grid [][]rune, a, b Coordinate) {
 	grid[a.row][a.column], grid[b.row][b.column] = grid[b.row][b.column], grid[a.row][a.column]
 }
 
-func isWall(pos Coordinate) bool {
+func isWall(grid [][]rune, pos Coordinate) bool {
 	return WALL == grid[pos.row][pos.column]
 }
 
-func isBox(pos Coordinate) bool {
+func isBox(grid [][]rune, pos Coordinate) bool {
 	return BOX == grid[pos.row][pos.column]
 }
 
-func isEmpty(pos Coordinate) bool {
+func isBoxLeft(grid [][]rune, pos Coordinate) bool {
+	return BOX_LEFT == grid[pos.row][pos.column]
+}
+
+func isBoxRight(grid [][]rune, pos Coordinate) bool {
+	return BOX_RIGHT == grid[pos.row][pos.column]
+}
+
+func isEmpty(grid [][]rune, pos Coordinate) bool {
 	return EMPTY == grid[pos.row][pos.column]
 }
 
@@ -135,8 +267,14 @@ func add(c1, c2 Coordinate) Coordinate {
 }
 
 func printGrid(grid [][]rune, header string) {
-	fmt.Println(header)
-	for _, line := range grid {
+	fmt.Printf("%s\n", header)
+	fmt.Printf("    ")
+	for i, _ := range grid[0] {
+		fmt.Printf("%d", i%10)
+	}
+	fmt.Println()
+	for l, line := range grid {
+		fmt.Printf("%03d ", l)
 		for _, cell := range line {
 			fmt.Printf("%c", cell)
 		}
@@ -166,4 +304,37 @@ func scaleUp(line string) string {
 	newLine = strings.ReplaceAll(newLine, "@", "@.")
 
 	return newLine
+}
+
+func executeSwapTree(grid [][]rune, swapTree map[int][]CoordinatePair) {
+	depths := make([]int, 0, len(swapTree))
+	for k := range swapTree {
+		depths = append(depths, k)
+	}
+
+	sort.Slice(depths, func(i, j int) bool {
+		return depths[i] > depths[j] // descending
+	})
+
+	fmt.Println("Depths to swap in descending order:")
+	for _, d := range depths {
+		swaps := deduplicate(swapTree[d])
+		for _, s := range swaps {
+			swap(grid, s.a, s.b)
+		}
+	}
+}
+
+func deduplicate(slice []CoordinatePair) []CoordinatePair {
+	seen := make(map[CoordinatePair]bool) // Map to track seen pairs
+	var result []CoordinatePair           // Deduplicated result slice
+
+	for _, pair := range slice {
+		if !seen[pair] {
+			seen[pair] = true             // Mark as seen
+			result = append(result, pair) // Add to result if not already seen
+		}
+	}
+
+	return result
 }
