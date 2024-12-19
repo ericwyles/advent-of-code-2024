@@ -63,32 +63,16 @@ func checkIfPossible(design string, towelPatterns []string) DesignResult {
 
 func parseInput() ([]string, []string) {
 	scanner := bufio.NewScanner(os.Stdin)
-	var towelPatterns []string // Slice to hold the comma-separated first line
-	var designs []string
 
-	// Read input line by line
-	isFirstLine := true
-
+	var lines []string
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text()) // Read a line and trim whitespace
-
-		// Skip empty lines
-		if line == "" {
-			continue
-		}
-
-		if isFirstLine {
-			// Split the first line by comma and store in firstLine slice
-			towelPatterns = strings.Split(line, ",")
-			for i := range towelPatterns {
-				towelPatterns[i] = strings.TrimSpace(towelPatterns[i]) // Trim spaces around each element
-			}
-			isFirstLine = false
-		} else {
-			// Append remaining lines as single strings to remainingLines slice
-			designs = append(designs, line)
-		}
+		lines = append(lines, strings.TrimSpace(scanner.Text()))
 	}
 
-	return towelPatterns, designs
+	towelPatterns := strings.Split(lines[0], ",")
+	for i := range towelPatterns {
+		towelPatterns[i] = strings.TrimSpace(towelPatterns[i])
+	}
+
+	return towelPatterns, lines[2:]
 }
