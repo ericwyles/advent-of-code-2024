@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"sort"
 )
 
 const (
@@ -14,20 +15,19 @@ const (
 	WALL      = '#'
 	EMPTY     = '.'
 	STEP_COST = 1
-)
-
-const (
-	NORTH = 0
-	EAST  = 1
-	SOUTH = 2
-	WEST  = 3
+	// // PART 1:
+	// MAX_CHEAT_DISTANCE = 2
+	// MIN_CHEAT_SAVINGS  = 100
+	// PART 2:
+	MAX_CHEAT_DISTANCE = 20
+	MIN_CHEAT_SAVINGS  = 100
 )
 
 var directions = []Coordinate{
-	{-1, 0}, // NORTH
-	{0, 1},  // EAST
-	{1, 0},  // SOUTH
-	{0, -1}, // WEST
+	{-1, 0}, // UP
+	{0, 1},  // RIGHT
+	{1, 0},  // DOWN
+	{0, -1}, // LEFT
 }
 
 type Cheat struct {
@@ -40,8 +40,8 @@ type Coordinate struct {
 }
 
 type State struct {
-	pos    Coordinate
-	cheats []Cheat
+	pos Coordinate
+	//cheats []Cheat
 }
 
 type Item struct {
@@ -78,13 +78,16 @@ func (pq *PriorityQueue) Pop() interface{} {
 	return item
 }
 
-func dijkstra(maze [][]rune, start Coordinate) (int, []Cheat) {
+func dijkstra(maze [][]rune, start Coordinate) (int, map[int][]Cheat) {
+	costMap := make(map[int]State)
 	pq := make(PriorityQueue, 0)
 	heap.Init(&pq)
 
 	// Initial state: start facing EAST
 	startState := State{pos: start}
 	heap.Push(&pq, &Item{state: startState, cost: 0})
+	costMap[0] = startState
+	cheatMap := make(map[int][]Cheat)
 
 	// Visited position map (track lowest cost to each position)
 	visited := make(map[Coordinate]int)
@@ -93,12 +96,6 @@ func dijkstra(maze [][]rune, start Coordinate) (int, []Cheat) {
 		current := heap.Pop(&pq).(*Item)
 		state := current.state
 		cost := current.cost
-		cheats := state.cheats
-
-		// Stop if we've reached the END
-		if maze[state.pos.row][state.pos.col] == END {
-			return cost, cheats
-		}
 
 		// Skip if already visited with lower cost
 		if prevCost, exists := visited[state.pos]; exists && cost >= prevCost {
@@ -106,27 +103,51 @@ func dijkstra(maze [][]rune, start Coordinate) (int, []Cheat) {
 		}
 		visited[state.pos] = cost
 
-		for dir := range 4 {
-			cheatStart := getNextPosition(state.pos, dir)
-			cheatEnd := getNextPosition(cheatStart, dir)
-			if _, exists := visited[cheatEnd]; !exists {
-				if isWall(maze, cheatStart) && isValidMove(maze, cheatEnd) {
-					cheats = append(cheats, Cheat{start: cheatStart, end: cheatEnd})
+		// find shortcuts that could lead to here
+		for i := range cost - MIN_CHEAT_SAVINGS {
+			if prevState, ok := costMap[i]; ok {
+				taxiDistance := getTaxiDistance(state.pos, prevState.pos)
+				if taxiDistance <= MAX_CHEAT_DISTANCE {
+					distanceSaved := cost - i - taxiDistance
+					if distanceSaved >= MIN_CHEAT_SAVINGS {
+						newCheat := Cheat{start: prevState.pos, end: state.pos}
+						cheatMap[distanceSaved] = append(cheatMap[distanceSaved], newCheat)
+					}
 				}
 			}
+		}
+
+		// Stop if we've reached the END
+		if maze[state.pos.row][state.pos.col] == END {
+			return cost, cheatMap
 		}
 
 		// Explore moves: up, down, left, right
 		for dir := range 4 {
 			nextPos := getNextPosition(state.pos, dir)
 			if isValidMove(maze, nextPos) {
-				nextState := State{pos: nextPos, cheats: cheats}
-				heap.Push(&pq, &Item{state: nextState, cost: cost + STEP_COST})
+				if _, exists := visited[nextPos]; !exists {
+					nextState := State{pos: nextPos}
+					nextCost := cost + STEP_COST
+					heap.Push(&pq, &Item{state: nextState, cost: nextCost})
+					costMap[nextCost] = nextState
+				}
 			}
 		}
 	}
 
-	return -1, nil
+	return -1, cheatMap
+}
+
+func getTaxiDistance(a, b Coordinate) int {
+	return absInt(a.row-b.row) + absInt(a.col-b.col)
+}
+
+func absInt(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 func replace(track [][]rune, pos Coordinate, new rune) {
@@ -165,22 +186,19 @@ func main() {
 	time, cheats := dijkstra(track, start)
 
 	fmt.Printf("Picoseconds to reach the end: %d\n", time)
-	fmt.Printf("Potential Cheats: %d\n", len(cheats))
 
-	numFastCheats := 0
-	for _, cheat := range cheats {
-		replace(track, cheat.start, EMPTY)
-		cheatTime, _ := dijkstra(track, start)
-		replace(track, cheat.start, WALL)
-
-		timeSaving := time - cheatTime
-		//fmt.Printf("Cheat [%03d] at [%v] saves %d picoseconds\n", i, cheat.start, timeSaving)
-		if timeSaving >= 100 {
-			numFastCheats++
-		}
+	fmt.Printf("Cheats found:\n")
+	var keys []int
+	for k := range cheats {
+		keys = append(keys, k)
 	}
-
-	fmt.Printf("Number of fast cheats found: %d\n", numFastCheats)
+	sort.Ints(keys)
+	totalCheats := 0
+	for _, k := range keys {
+		totalCheats += len(cheats[k])
+		fmt.Printf("    There are %d cheats that save %d picoseconds.\n", len(cheats[k]), k)
+	}
+	fmt.Printf("Total Cheats: %d\n", totalCheats)
 }
 
 func printGrid(grid [][]rune, header string) {
