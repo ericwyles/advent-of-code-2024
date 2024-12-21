@@ -23,14 +23,14 @@ func main() {
 	// part 1
 	complexityScore := 0
 	for _, code := range codes {
-		complexityScore += calculateScore(code, 3)
+		complexityScore += calculateScore(code, 3) // 3 robots
 	}
 	fmt.Printf("Part 1 - Total complexity score: %d\n", complexityScore)
 
 	// part 2
 	complexityScore = 0
 	for _, code := range codes {
-		complexityScore += calculateScore(code, 26)
+		complexityScore += calculateScore(code, 26) // 26 robots
 	}
 	fmt.Printf("Part 2 - Total complexity score: %d\n", complexityScore)
 }
@@ -71,23 +71,6 @@ func getMoveCount(current, next rune, depth int) int {
 	return getSequenceLength(newSequence, depth-1)
 }
 
-// func getSequence(startPosition rune, targetSequence string) string {
-// 	current := startPosition
-
-// 	var builder strings.Builder
-
-// 	for _, next := range targetSequence {
-// 		if current == next {
-// 			builder.WriteString("A")
-// 		} else {
-// 			builder.WriteString(paths[buttonPair{first: current, second: next}])
-// 		}
-// 		current = next
-// 	}
-
-// 	return builder.String()
-// }
-
 func codeToInteger(input string) (int, error) {
 	var numericPart strings.Builder
 	for _, char := range input {
@@ -96,7 +79,6 @@ func codeToInteger(input string) (int, error) {
 		}
 	}
 
-	// Convert numeric part to integer
 	return strconv.Atoi(numericPart.String())
 }
 
