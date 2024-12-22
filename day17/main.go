@@ -21,6 +21,8 @@ var output string
 var programString string
 var program []int
 
+var bitSegments []int // Array to store bit segments
+
 func main() {
 	parseInput()
 
@@ -30,9 +32,6 @@ func main() {
 	fmt.Printf("Program string: %s\n", programString)
 	printState(i)
 
-	a := RegisterA
-	b := RegisterB
-	c := RegisterC
 	output = ""
 
 	runProgram(program, false, "")
@@ -40,57 +39,67 @@ func main() {
 	fmt.Println("PART 1:")
 	fmt.Println(output)
 
-	if len(os.Args) > 1 {
-		arg := os.Args[1] // First argument after the program name
-		parsedValue, _ := strconv.Atoi(arg)
-		a = parsedValue
-	}
-
-	RegisterA = a
-	RegisterB = b
-	RegisterC = c
-	output = ""
-
-	// some stuff for part 2 maybe
-	for i = len(program) - 2; i >= 0; i-- {
-		segment := ""
-		for k := i; k < len(program)-1; k++ {
-			if len(segment) > 0 {
-				segment += ","
-			}
-			segment += fmt.Sprintf("%d", program[k])
-		}
-		segment += ",0"
-		fmt.Printf("Finding match for program[%d]=[%s]...\n", i, segment)
-
-		for j := 0; j <= 7; j++ {
-			RegisterA = zeroLowest3Bits(RegisterA)
-			RegisterA += j
-			RegisterB, RegisterC = 0, 0
-			output = ""
-
-			runProgram(program, false, "")
-			if output == segment {
-				fmt.Printf("    Found a match %d\n", j)
-				RegisterA = RegisterA << 3
-			}
-		}
-
-	}
-
-	//RegisterA = a
-	RegisterB = b
-	RegisterC = c
-	output = ""
 	fmt.Println("PART 2:")
-	runProgram(program, true, "")
+	bitSegments = make([]int, len(program))
+
+	// Attempt to brute-force every output from last to first
+	reconstructOutputBits(0)
+
+	// Connect all segments to create the initial value for register A
+	var initialRegisterA int = 0
+	for i := 0; i < len(bitSegments); i++ {
+		initialRegisterA = initialRegisterA << 3
+		initialRegisterA += bitSegments[i]
+	}
+
+	fmt.Println("Initial Register A:", initialRegisterA)
+	runProgram2(initialRegisterA)
 	fmt.Println(output)
 	fmt.Println(programString)
 }
 
-func zeroLowest3Bits(n int) int {
-	mask := ^7 // 7 in binary is 0b111, ~7 flips all bits
-	return n & mask
+func reconstructOutputBits(depth int) bool {
+	if depth == len(bitSegments) {
+		return true
+	}
+
+	// Compute previous values
+	var previousValues = 0
+	for i := 0; i < depth; i++ {
+		previousValues += bitSegments[i]
+		previousValues = previousValues << 3
+	}
+
+	// Attempt to determine bits for this output
+	for i := 0; i < 8; i++ {
+		a := previousValues + i
+		resultingOutput := runcalc(a)
+		if resultingOutput == program[len(program)-1-depth] {
+			bitSegments[depth] = i
+			if reconstructOutputBits(depth + 1) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func runProgram2(a int) { // this is a super simplified version of my input program logic hard-coded so it can be used to check values
+	output = ""
+	for a > 0 {
+		calc := runcalc(a)
+		if len(output) > 0 {
+			output += ","
+		}
+		output += fmt.Sprintf("%d", calc)
+		a = a / 8
+	}
+}
+
+func runcalc(a int) int {
+	mod8 := a % 8
+	return ((mod8 ^ 1) ^ (a / (1 << (mod8 ^ 2)))) % 8
 }
 
 func runProgram(program []int, debug bool, expectedOutput string) {
