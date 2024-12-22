@@ -29,32 +29,27 @@ func main() {
 
 	start2 := time.Now()
 	buyerSequenceMaps := make([]map[Sequence]int, len(numbers))
-	uniqueSequences := make(map[Sequence]bool)
 	for i, offers := range buyerOffers {
 		buyerSequences := getOfferSequences(offers)
 		buyerSequenceMaps[i] = buyerSequences
-		fmt.Printf("Buyer %d Sequences: %d\n", i, len(buyerSequences))
 	}
 
-	for _, buyerSequences := range buyerSequenceMaps {
-		for k := range buyerSequences {
-			uniqueSequences[k] = true
+	sequenceOfferMap := make(map[Sequence]int)
+	for _, buyerMap := range buyerSequenceMaps {
+		for seq, offer := range buyerMap {
+			sequenceOfferMap[seq] += offer
 		}
 	}
 
-	fmt.Printf("Total Unique Sequences: %d\n", len(uniqueSequences))
 	bestTotalOffer := 0
 	var bestSequence Sequence
-	for k, _ := range uniqueSequences {
-		offer := getTotalOffers(k, buyerSequenceMaps)
-		if offer > bestTotalOffer {
-			bestTotalOffer = offer
-			bestSequence = k
+	for seq, totalOffer := range sequenceOfferMap {
+		if totalOffer > bestTotalOffer {
+			bestTotalOffer = totalOffer
+			bestSequence = seq
 		}
 	}
 
-	// i know from previous submissions that 2236 is too low and 2276 is too high
-	///    so i have a subtle bug above somehow
 	fmt.Printf("Best sequence: %v Offer: %d\n", bestSequence, bestTotalOffer)
 	elapsed2 := time.Since(start2)
 
@@ -95,6 +90,7 @@ func getSequenceAtPosition(offers []int, i int) (Sequence, int) {
 func rotate(secret, times int) (int, []int) {
 	var offers []int
 	var s uint64 = uint64(secret) // Cast to uint64 for safety
+	offers = append(offers, int(s%10))
 	for i := 0; i < times; i++ {
 		s = (s ^ (s * 64)) % 16777216
 		s = (s ^ (s / 32)) % 16777216
